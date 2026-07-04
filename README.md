@@ -47,26 +47,36 @@ pip install -r requirements.txt
 Output from running `python main.py`:
 
 ```
-================================================
-         PawPal+ - Today's Schedule
-================================================
+====================================================
+           PawPal+ - Today's Schedule
+====================================================
   Owner : Muskaan  |  muskaan@example.com
   Pets  : Biscuit, Whiskers
   Date  : 2026-07-03
-================================================
+====================================================
 
-  [x]  Biscuit      Morning Walk
-             30-min walk around the block
+  [All tasks - sorted by time]
+  [ ]  07:00  Biscuit      Morning Walk
+                   30-min walk around the block
 
-  [ ]  Biscuit      Feeding
-             1 cup of dry food, morning serving
+  [ ]  08:00  Biscuit      Feeding
+                   1 cup of dry food, morning serving
 
-  [ ]  Whiskers     Medication
-             Give joint supplement pill with food
+  [ ]  09:00  Whiskers     Medication
+                   Give joint supplement pill with food
 
-================================================
+  [Pending tasks only]
+  [ ]  07:00  Biscuit      Morning Walk
+  [ ]  09:00  Whiskers     Medication
+
+  [Recurring task completed]
+  Marked done : 'Morning Walk' on 2026-07-03
+  Auto-created: 'Morning Walk' on 2026-07-04  (today + 1 day via timedelta)
+
+====================================================
   Today: 3 task(s)  |  Done: 1  |  Pending: 2
-================================================
+  Tomorrow: 2 task(s) scheduled (incl. auto-generated)
+====================================================
 ```
 
 ## 🧪 Testing PawPal+
@@ -87,14 +97,13 @@ Sample test output:
 
 ## 📐 Smarter Scheduling
 
-> Fill in once you've implemented scheduling logic.
-
 | Feature | Method(s) | Notes |
 |---------|-----------|-------|
-| Task sorting | | e.g., by priority, duration |
-| Filtering | | e.g., skip tasks if time runs out |
-| Conflict handling | | e.g., overlapping time slots |
-| Recurring tasks | | e.g., daily vs. weekly |
+| Task sorting | `Scheduler.sort_by_time(tasks)` | Sorts any list of Tasks by `due_time` using a lambda key; called automatically by `get_today_tasks()` so today's schedule is always in chronological order |
+| Filtering | `Scheduler.filter_tasks(pet_name, completed, on_date)` | Single-pass filter accepting any combination of pet, completion status, and date; omit a parameter to leave that dimension unfiltered |
+| Conflict detection | `Scheduler.check_conflicts(task)` | Returns a list of warning strings (never raises) for same-pet **and** cross-pet time overlaps; called automatically on every `add_task()` so conflicts surface at scheduling time |
+| Recurring tasks | `Scheduler.mark_task_complete(task)` | Marks a task done and uses `timedelta` to auto-schedule the next occurrence from `due_date` (not today), so late completions don't shift the schedule |
+| Bulk recurring expansion | `Scheduler.generate_recurring(days_ahead)` | Pre-generates all future occurrences up to `days_ahead` days out; skips dates that already exist to prevent duplicates |
 
 ## 📸 Demo Walkthrough
 

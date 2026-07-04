@@ -38,8 +38,11 @@ Two changes were made after an AI review of the skeleton:
 
 **b. Tradeoffs**
 
-- Describe one tradeoff your scheduler makes.
-- Why is that tradeoff reasonable for this scenario?
+**Tradeoff: linear scan for conflict detection vs. indexed lookup**
+
+The scheduler's `_conflicts()` method loops through every task in `self.tasks` for each new task being added. This is O(n) per conflict check, making the overall cost of adding n tasks O(n²). A more scalable design would index tasks by date — for example, a dictionary mapping `due_date → List[Task]` — so each check only scans the tasks scheduled for that specific day rather than the entire list.
+
+The reason a plain list is reasonable here is that a personal pet scheduling app will realistically hold tens of tasks, not thousands. At that scale the linear scan completes in microseconds, and the simpler data structure is easier to reason about, iterate over, and serialize. Adding an index would require keeping it in sync whenever a task's date changes or a task is removed — complexity that would only pay off at a much larger scale. The tradeoff is **simplicity and maintainability now** in exchange for **scalability later**.
 
 ---
 

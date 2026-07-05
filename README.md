@@ -161,7 +161,13 @@ All 37 tests pass, covering both happy paths and edge cases for every scheduling
 
 ## 🏗️ System Architecture
 
-The diagram below is rendered automatically by GitHub from [`diagrams/uml_final.mmd`](diagrams/uml_final.mmd).
+The Mermaid source is in [`diagrams/uml_final.mmd`](diagrams/uml_final.mmd). The diagram is shown twice below: once as a rendered PNG export, and once as a Mermaid code block (GitHub renders this automatically if the PNG ever goes out of date).
+
+### PNG export
+
+![PawPal+ UML Class Diagram](diagrams/uml_final.png)
+
+### Mermaid source
 
 ```mermaid
 classDiagram

@@ -159,6 +159,62 @@ tests/test_pawpal.py::test_get_tasks_by_owner_no_pets PASSED             [100%]
 
 All 37 tests pass, covering both happy paths and edge cases for every scheduling algorithm. Confidence is strong for the core Python logic. One star is held back because the tests run against in-memory data only — the Streamlit UI layer and any future persistence (database, file) have not yet been tested end-to-end.
 
+## 🏗️ System Architecture
+
+The diagram below is rendered automatically by GitHub from [`diagrams/uml_final.mmd`](diagrams/uml_final.mmd).
+
+```mermaid
+classDiagram
+    class Owner {
+        +String name
+        +String email
+        +List~Pet~ pets
+        +add_pet(pet)
+        +remove_pet(pet)
+        +view_pets() List~Pet~
+    }
+
+    class Pet {
+        +String name
+        +String species
+        +int age
+        +add_task(task, scheduler)
+        +view_tasks(scheduler) List~Task~
+    }
+
+    class Task {
+        +String title
+        +String description
+        +date due_date
+        +time due_time
+        +int duration_minutes
+        +bool completed
+        +String pet_name
+        +Optional~str~ recurrence
+        +mark_complete()
+        +mark_incomplete()
+    }
+
+    class Scheduler {
+        +List~Task~ tasks
+        +add_task(task)
+        +sort_by_time(tasks) List~Task~
+        +get_today_tasks() List~Task~
+        +get_tasks_by_pet(pet_name) List~Task~
+        +get_tasks_by_owner(owner) List~Task~
+        +filter_tasks(pet_name, completed, on_date) List~Task~
+        +check_conflicts(task) List~str~
+        +mark_task_complete(task) Task
+        +generate_recurring(days_ahead)
+        -_conflicts(task) List~Task~
+    }
+
+    Owner "1" --> "0..*" Pet : owns
+    Scheduler "1" --> "0..*" Task : manages
+    Pet ..> Scheduler : delegates tasks to
+    Scheduler ..> Owner : accepts as parameter
+```
+
 ## 📐 Smarter Scheduling
 
 | Feature | Method(s) | Notes |

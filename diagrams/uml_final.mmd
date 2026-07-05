@@ -1,0 +1,60 @@
+%%  PawPal+ — Final Class Diagram
+%%  Reflects the implementation in pawpal_system.py after Phase 3–5 changes.
+%%
+%%  Key changes from uml_draft.mmd:
+%%    - Task gained due_time, duration_minutes, and recurrence fields
+%%    - Pet no longer stores tasks (tasks list removed); Scheduler is the single source of truth
+%%    - Pet.add_task / view_tasks now accept a Scheduler parameter
+%%    - Scheduler gained 7 new methods (sorting, filtering, conflict detection, recurring logic)
+%%    - Pet → Task direct ownership relationship removed
+%%    - Two new dependency arrows added: Pet ..> Scheduler and Scheduler ..> Owner
+
+classDiagram
+    class Owner {
+        +String name
+        +String email
+        +List~Pet~ pets
+        +add_pet(pet)
+        +remove_pet(pet)
+        +view_pets() List~Pet~
+    }
+
+    class Pet {
+        +String name
+        +String species
+        +int age
+        +add_task(task, scheduler)
+        +view_tasks(scheduler) List~Task~
+    }
+
+    class Task {
+        +String title
+        +String description
+        +date due_date
+        +time due_time
+        +int duration_minutes
+        +bool completed
+        +String pet_name
+        +Optional~str~ recurrence
+        +mark_complete()
+        +mark_incomplete()
+    }
+
+    class Scheduler {
+        +List~Task~ tasks
+        +add_task(task)
+        +sort_by_time(tasks) List~Task~
+        +get_today_tasks() List~Task~
+        +get_tasks_by_pet(pet_name) List~Task~
+        +get_tasks_by_owner(owner) List~Task~
+        +filter_tasks(pet_name, completed, on_date) List~Task~
+        +check_conflicts(task) List~str~
+        +mark_task_complete(task) Task
+        +generate_recurring(days_ahead)
+        -_conflicts(task) List~Task~
+    }
+
+    Owner "1" --> "0..*" Pet : owns
+    Scheduler "1" --> "0..*" Task : manages
+    Pet ..> Scheduler : delegates tasks to
+    Scheduler ..> Owner : accepts as parameter

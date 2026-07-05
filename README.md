@@ -22,6 +22,26 @@ Your final app should:
 - Display the plan clearly (and ideally explain the reasoning)
 - Include tests for the most important scheduling behaviors
 
+## ✨ Features
+
+### Core scheduling algorithms
+
+| Feature | Method | Description |
+|---------|--------|-------------|
+| **Chronological sorting** | `Scheduler.sort_by_time(tasks)` | Tasks added in any order are always displayed earliest-first using a lambda sort key on `due_time`. Called automatically by `get_today_tasks()`. |
+| **Smart filtering** | `Scheduler.filter_tasks(pet_name, completed, on_date)` | Single-pass filter that accepts any combination of pet name, completion status, and date. Omit a parameter to leave that dimension unfiltered. |
+| **Conflict detection** | `Scheduler.check_conflicts(task)` | Returns human-readable warning strings for any time-window overlap — same pet *or* different pets (an owner can only be in one place at a time). Called on every `add_task()` and surfaced as `st.warning` in the UI. Never crashes the program. |
+| **Recurring task auto-scheduling** | `Scheduler.mark_task_complete(task)` | Marks a task done and uses Python's `timedelta` to compute the next occurrence from `due_date` (not `date.today()`), so completing a task late does not silently shift the whole schedule forward. |
+| **Bulk recurring expansion** | `Scheduler.generate_recurring(days_ahead)` | Pre-generates all future occurrences of daily/weekly tasks up to `days_ahead` days out. Skips dates that already exist to prevent duplicates. Uses `dataclasses.replace()` to copy all task fields safely. |
+
+### Streamlit UI features
+
+- **Owner setup** — enter name and email, saved across reruns via `st.session_state`
+- **Pet management** — add multiple pets with name, species, and age
+- **Task creation** — set title, description, due date, time, duration, and recurrence (none / daily / weekly); conflict warnings appear immediately after submitting
+- **Live schedule view** — filter by pet and/or status; metric tiles show total / done / pending counts; tasks display as cards sorted chronologically
+- **Mark Done button** — marks a task complete and shows which date the next occurrence was auto-scheduled
+
 ## Getting started
 
 ### Setup
@@ -42,9 +62,13 @@ pip install -r requirements.txt
 6. Connect your logic to the Streamlit UI in `app.py`.
 7. Refine UML so it matches what you actually built.
 
-## 🖥️ Sample Output
+## 🖥️ Sample CLI Output
 
-Output from running `python main.py`:
+Run the demo script directly to see all scheduling algorithms in action:
+
+```bash
+python main.py
+```
 
 ```
 ====================================================
@@ -52,7 +76,7 @@ Output from running `python main.py`:
 ====================================================
   Owner : Muskaan  |  muskaan@example.com
   Pets  : Biscuit, Whiskers
-  Date  : 2026-07-03
+  Date  : 2026-07-04
 ====================================================
 
   [All tasks - sorted by time]
@@ -67,11 +91,29 @@ Output from running `python main.py`:
 
   [Pending tasks only]
   [ ]  07:00  Biscuit      Morning Walk
+                   30-min walk around the block
+
+  [ ]  08:00  Biscuit      Feeding
+                   1 cup of dry food, morning serving
+
   [ ]  09:00  Whiskers     Medication
+                   Give joint supplement pill with food
+
+  [Biscuit's tasks only]
+  [ ]  07:00  Biscuit      Morning Walk
+                   30-min walk around the block
+
+  [ ]  08:00  Biscuit      Feeding
+                   1 cup of dry food, morning serving
+
+  [Adding conflicting tasks - watch for warnings]
+  Warning: 'Bath' and 'Morning Walk' overlap for Biscuit
+  Warning: 'Playtime' (Whiskers) and 'Morning Walk' (Biscuit) overlap - you can't do both at once
+  Warning: 'Playtime' (Whiskers) and 'Bath' (Biscuit) overlap - you can't do both at once
 
   [Recurring task completed]
-  Marked done : 'Morning Walk' on 2026-07-03
-  Auto-created: 'Morning Walk' on 2026-07-04  (today + 1 day via timedelta)
+  Marked done : 'Morning Walk' on 2026-07-04
+  Auto-created: 'Morning Walk' on 2026-07-05  (today + 1 day via timedelta)
 
 ====================================================
   Today: 3 task(s)  |  Done: 1  |  Pending: 2
@@ -233,12 +275,70 @@ classDiagram
 
 ## 📸 Demo Walkthrough
 
-Describe your app in numbered steps so a reader can follow along without watching a video:
+Follow these steps to use the full app. Each step maps to a UI section in `app.py`.
 
-1. <!-- Describe this step -->
-2. <!-- Describe this step -->
-3. <!-- Describe this step -->
-4. <!-- Describe this step -->
-5. <!-- Add more steps as needed -->
+### Step 1 — Launch the app
 
-**Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->
+```bash
+streamlit run app.py
+```
+
+The browser opens at `http://localhost:8501`. You'll see four sections in order: Owner Info, Add a Pet, Add a Task, and Today's Schedule.
+
+### Step 2 — Enter owner info
+
+Fill in your name and email, then click **Save owner info**. A green `st.success` banner confirms the save. This data persists across reruns via `st.session_state`.
+
+### Step 3 — Add your pets
+
+Enter a pet name, pick a species, and set the age. Click **Add pet**. Repeat for each pet — they appear in a list below the form. You must add at least one pet before the task form activates.
+
+### Step 4 — Schedule a task
+
+The task form lets you set:
+- **Pet** — which pet the task belongs to
+- **Title and description** — what the task is
+- **Due date and time** — when it should happen (`due_time` feeds directly into `sort_by_time`)
+- **Duration** — how long it takes (used by conflict detection to compute time-window overlaps)
+- **Recurrence** — None, daily, or weekly (daily/weekly tasks auto-schedule their next occurrence when marked done)
+
+Click **Add task**. If the new task's time window overlaps any existing task — for the same pet *or* a different pet — a yellow `st.warning` banner appears immediately, e.g.:
+
+> ⚠️ **Scheduling conflict:** 'Bath' and 'Morning Walk' overlap for Biscuit
+
+The task is still saved. Warnings inform rather than block.
+
+### Step 5 — View and filter today's schedule
+
+The **Today's Schedule** section:
+- Displays a **metric row** (Total / Done / Pending) at a glance
+- Shows tasks as bordered cards sorted chronologically by `due_time` via `Scheduler.sort_by_time()`
+- Lets you filter by **pet** or **status** (All / Pending / Done) using `Scheduler.filter_tasks()`
+- Each card shows the task time, duration, pet name, description, and a recurrence badge if applicable
+
+### Step 6 — Mark a task done
+
+Click **✓ Done** on any pending card. The app calls `Scheduler.mark_task_complete(task)`:
+- The task is marked complete and the card updates immediately
+- If the task is recurring, a green banner confirms the next occurrence was auto-scheduled, e.g.:
+
+> Done! 'Morning Walk' auto-scheduled for **2026-07-05** (recurring daily).
+
+The new task appears in tomorrow's schedule automatically — no manual re-entry needed.
+
+---
+
+### Example end-to-end workflow
+
+```
+Add owner "Muskaan"
+  → Add pet "Biscuit" (Dog, age 3)
+  → Add pet "Whiskers" (Cat, age 5)
+  → Add task: Biscuit | Morning Walk | 07:00 | 30 min | daily
+  → Add task: Biscuit | Feeding      | 08:00 | 15 min | none
+  → Add task: Whiskers | Medication  | 09:00 | 10 min | none
+  → Try adding: Biscuit | Bath       | 07:15 | 30 min → ⚠️ conflict warning shown
+  → View today's schedule → sorted 07:00, 08:00, 09:00
+  → Filter by pet "Biscuit" → shows only Walk and Feeding
+  → Click ✓ Done on Morning Walk → next Walk auto-created for tomorrow
+```

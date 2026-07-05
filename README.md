@@ -81,19 +81,83 @@ Output from running `python main.py`:
 
 ## 🧪 Testing PawPal+
 
+### Run the tests
+
 ```bash
-# Run the full test suite:
-pytest
+# Run the full test suite with verbose output:
+python -m pytest tests/test_pawpal.py -v
 
-# Run with coverage:
-pytest --cov
+# Run without verbose (summary only):
+python -m pytest tests/test_pawpal.py
 ```
 
-Sample test output:
+### What the tests cover
+
+The suite contains **37 tests** across five behavioral areas:
+
+| Area | # Tests | What's verified |
+|------|---------|-----------------|
+| **Task status** | 2 | `mark_complete` and `mark_incomplete` toggle correctly |
+| **Sorting** | 4 | Tasks added out of order appear chronologically; empty list and same-time ties are handled safely |
+| **Filtering** | 5 | Filter by pet, status, date, any combination, and edge cases (unknown pet, no arguments, empty scheduler) |
+| **Recurring tasks** | 8 | Daily and weekly auto-scheduling; duplicate prevention; `days_ahead=0`; late completions use `due_date` not `today`; unknown recurrence values silently skipped |
+| **Conflict detection** | 7 | Same-pet and cross-pet overlaps produce warnings; sequential tasks, different dates, and empty scheduler produce no false positives |
+| **Boundary / empty states** | 5 | Empty scheduler, unknown pet, owner with no pets — all return `[]` without crashing |
+| **Core integration** | 6 | Adding tasks increases counts; `get_today_tasks` excludes tomorrow; `get_tasks_by_owner` scopes correctly |
+
+### Test output
 
 ```
-# Paste your pytest output here
+============================= test session starts =============================
+platform win32 -- Python 3.10.2, pytest-9.1.1, pluggy-1.6.0
+collected 37 items
+
+tests/test_pawpal.py::test_mark_complete_changes_status PASSED           [  2%]
+tests/test_pawpal.py::test_mark_incomplete_changes_status PASSED         [  5%]
+tests/test_pawpal.py::test_adding_task_increases_pet_task_count PASSED   [  8%]
+tests/test_pawpal.py::test_get_today_tasks_sorted_by_time PASSED         [ 10%]
+tests/test_pawpal.py::test_tomorrow_tasks_excluded_from_today PASSED     [ 13%]
+tests/test_pawpal.py::test_filter_by_pet PASSED                          [ 16%]
+tests/test_pawpal.py::test_filter_by_completed_status PASSED             [ 18%]
+tests/test_pawpal.py::test_filter_combined_pet_and_status PASSED         [ 21%]
+tests/test_pawpal.py::test_filter_by_date PASSED                         [ 24%]
+tests/test_pawpal.py::test_generate_recurring_daily_creates_future_tasks PASSED [ 27%]
+tests/test_pawpal.py::test_generate_recurring_weekly_creates_correct_date PASSED [ 29%]
+tests/test_pawpal.py::test_generate_recurring_no_duplicates PASSED       [ 32%]
+tests/test_pawpal.py::test_non_recurring_task_not_expanded PASSED        [ 35%]
+tests/test_pawpal.py::test_mark_task_complete_marks_task_done PASSED     [ 37%]
+tests/test_pawpal.py::test_mark_task_complete_daily_creates_next_day PASSED [ 40%]
+tests/test_pawpal.py::test_mark_task_complete_weekly_creates_next_week PASSED [ 43%]
+tests/test_pawpal.py::test_mark_task_complete_non_recurring_returns_none PASSED [ 45%]
+tests/test_pawpal.py::test_mark_task_complete_no_duplicate_if_next_exists PASSED [ 48%]
+tests/test_pawpal.py::test_conflict_detection_warns_on_same_pet_overlap PASSED [ 51%]
+tests/test_pawpal.py::test_check_conflicts_returns_strings_not_exceptions PASSED [ 54%]
+tests/test_pawpal.py::test_check_conflicts_empty_when_no_overlap PASSED  [ 56%]
+tests/test_pawpal.py::test_no_conflict_when_tasks_are_sequential PASSED  [ 59%]
+tests/test_pawpal.py::test_conflict_between_different_pets_warns PASSED  [ 62%]
+tests/test_pawpal.py::test_sort_by_time_empty_list PASSED                [ 64%]
+tests/test_pawpal.py::test_sort_by_time_same_time_is_stable PASSED       [ 67%]
+tests/test_pawpal.py::test_filter_tasks_no_arguments_returns_all PASSED  [ 70%]
+tests/test_pawpal.py::test_filter_tasks_unknown_pet_returns_empty PASSED [ 72%]
+tests/test_pawpal.py::test_filter_tasks_on_empty_scheduler PASSED        [ 75%]
+tests/test_pawpal.py::test_mark_task_complete_twice_no_double_schedule PASSED [ 78%]
+tests/test_pawpal.py::test_mark_task_complete_uses_due_date_not_today PASSED [ 81%]
+tests/test_pawpal.py::test_generate_recurring_days_ahead_zero PASSED     [ 83%]
+tests/test_pawpal.py::test_generate_recurring_unknown_recurrence_skipped PASSED [ 86%]
+tests/test_pawpal.py::test_no_conflict_same_time_different_dates PASSED  [ 89%]
+tests/test_pawpal.py::test_check_conflicts_on_empty_scheduler PASSED     [ 91%]
+tests/test_pawpal.py::test_get_today_tasks_on_empty_scheduler PASSED     [ 94%]
+tests/test_pawpal.py::test_get_tasks_by_pet_unknown_pet PASSED           [ 97%]
+tests/test_pawpal.py::test_get_tasks_by_owner_no_pets PASSED             [100%]
+
+============================= 37 passed in 0.07s ==============================
 ```
+
+### Confidence level
+
+**★★★★☆ (4 / 5)**
+
+All 37 tests pass, covering both happy paths and edge cases for every scheduling algorithm. Confidence is strong for the core Python logic. One star is held back because the tests run against in-memory data only — the Streamlit UI layer and any future persistence (database, file) have not yet been tested end-to-end.
 
 ## 📐 Smarter Scheduling
 

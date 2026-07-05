@@ -298,3 +298,180 @@ def test_conflict_between_different_pets_warns(capsys):
     assert "Biscuit" in captured.out
     assert "Whiskers" in captured.out
     assert "can't do both" in captured.out
+
+
+# =============================================================================
+# Phase 5 — edge-case suite
+# Each section targets one behavior from the test plan and covers both the
+# happy path (works correctly) and the edge case (boundary / unexpected input).
+# =============================================================================
+
+# --- Sorting edge cases ---
+
+def test_sort_by_time_empty_list():
+    # sorted() on an empty list must return [] — not raise an error.
+    # This guards against callers passing an empty filter result into sort_by_time.
+    scheduler = Scheduler()
+    assert scheduler.sort_by_time([]) == []
+
+
+def test_sort_by_time_same_time_is_stable():
+    # Python's sorted() is guaranteed stable: equal elements keep their original order.
+    # Two tasks at 07:00 should come back Walk → Feed (insertion order), never swapped.
+    scheduler = Scheduler()
+    pet = Pet(name="Biscuit", species="Dog", age=3)
+
+    pet.add_task(Task("Walk", "Walk", date.today(), "", due_time=time(7, 0), duration_minutes=0), scheduler)
+    pet.add_task(Task("Feed", "Feed", date.today(), "", due_time=time(7, 0), duration_minutes=0), scheduler)
+
+    tasks = scheduler.sort_by_time(scheduler.get_today_tasks())
+    assert len(tasks) == 2
+    assert tasks[0].title == "Walk"   # first inserted comes first
+    assert tasks[1].title == "Feed"
+
+
+# --- Filtering edge cases ---
+
+def test_filter_tasks_no_arguments_returns_all():
+    # Calling filter_tasks() with no arguments means "no filters applied".
+    # Every task in the scheduler should be returned.
+    scheduler = Scheduler()
+    pet = Pet(name="Biscuit", species="Dog", age=3)
+    pet.add_task(make_task("Walk"), scheduler)
+    pet.add_task(make_task("Feed"), scheduler)
+
+    assert len(scheduler.filter_tasks()) == 2
+
+
+def test_filter_tasks_unknown_pet_returns_empty():
+    # If no tasks belong to the requested pet, the result should be an empty
+    # list — not None, not an error.
+    scheduler = Scheduler()
+    pet = Pet(name="Biscuit", species="Dog", age=3)
+    pet.add_task(make_task("Walk"), scheduler)
+
+    assert scheduler.filter_tasks(pet_name="Ghost") == []
+
+
+def test_filter_tasks_on_empty_scheduler():
+    # All filter combinations on a scheduler with zero tasks must return [].
+    scheduler = Scheduler()
+    assert scheduler.filter_tasks(pet_name="Biscuit") == []
+    assert scheduler.filter_tasks(completed=False) == []
+    assert scheduler.filter_tasks(on_date=date.today()) == []
+
+
+# --- Recurring edge cases ---
+
+def test_mark_task_complete_twice_no_double_schedule():
+    # Calling mark_task_complete on the same task twice should NOT create two
+    # copies of the next occurrence — the second call detects it already exists.
+    scheduler = Scheduler()
+    task = Task("Morning Walk", "Walk", date.today(), "Biscuit",
+                due_time=time(7, 0), duration_minutes=30, recurrence="daily")
+    scheduler.tasks.append(task)
+
+    scheduler.mark_task_complete(task)        # creates tomorrow's task
+    second_result = scheduler.mark_task_complete(task)  # tomorrow already exists
+
+    assert second_result is None
+    walk_count = len([t for t in scheduler.tasks if t.title == "Morning Walk"])
+    assert walk_count == 2   # today (done) + tomorrow, never three
+
+
+def test_mark_task_complete_uses_due_date_not_today():
+    # If a task was due yesterday and is completed late, the next occurrence
+    # should be due_date + 1 day (= today), NOT date.today() + 1 day (= tomorrow).
+    # This prevents late completions from silently shifting the schedule forward.
+    scheduler = Scheduler()
+    yesterday = date.today() - timedelta(days=1)
+
+    task = Task("Walk", "Walk", yesterday, "Biscuit",
+                due_time=time(7, 0), duration_minutes=30, recurrence="daily")
+    scheduler.tasks.append(task)
+
+    next_task = scheduler.mark_task_complete(task)
+
+    # yesterday + 1 day = today — completing late does not skip today
+    assert next_task.due_date == date.today()
+
+
+def test_generate_recurring_days_ahead_zero():
+    # days_ahead=0 means the deadline is today itself. The first candidate date
+    # is always due_date + delta (= tomorrow for a daily task), which is already
+    # past the deadline, so the while-loop should never execute.
+    scheduler = Scheduler()
+    task = Task("Walk", "Walk", date.today(), "Biscuit",
+                due_time=time(7, 0), duration_minutes=30, recurrence="daily")
+    scheduler.tasks.append(task)
+
+    scheduler.generate_recurring(days_ahead=0)
+
+    assert len(scheduler.tasks) == 1   # no new tasks added
+
+
+def test_generate_recurring_unknown_recurrence_skipped():
+    # "monthly" is not a supported recurrence value. The scheduler should
+    # silently ignore it rather than crash or create incorrect occurrences.
+    scheduler = Scheduler()
+    task = Task("Vet", "Annual vet visit", date.today(), "Biscuit",
+                due_time=time(10, 0), duration_minutes=60, recurrence="monthly")
+    scheduler.tasks.append(task)
+
+    scheduler.generate_recurring(days_ahead=31)
+
+    assert len(scheduler.tasks) == 1   # "monthly" task untouched
+
+
+# --- Conflict edge cases ---
+
+def test_no_conflict_same_time_different_dates():
+    # Two tasks at 07:00 but on different dates must NOT produce a conflict.
+    # Conflict detection only considers tasks on the same calendar date.
+    scheduler = Scheduler()
+    pet = Pet(name="Biscuit", species="Dog", age=3)
+    tomorrow = date.today() + timedelta(days=1)
+
+    pet.add_task(Task("Walk", "Walk", date.today(), "", due_time=time(7, 0), duration_minutes=60), scheduler)
+    tomorrows_task = Task("Walk", "Walk", tomorrow, "Biscuit",
+                          due_time=time(7, 0), duration_minutes=60)
+
+    assert scheduler.check_conflicts(tomorrows_task) == []
+
+
+def test_check_conflicts_on_empty_scheduler():
+    # With no existing tasks, conflict detection should always return an
+    # empty list — there is nothing to conflict with.
+    scheduler = Scheduler()
+    task = Task("Walk", "Walk", date.today(), "Biscuit",
+                due_time=time(7, 0), duration_minutes=60)
+
+    assert scheduler.check_conflicts(task) == []
+
+
+# --- Empty / boundary states ---
+
+def test_get_today_tasks_on_empty_scheduler():
+    # An empty scheduler has no tasks; get_today_tasks should return [],
+    # not raise an IndexError or return None.
+    scheduler = Scheduler()
+    assert scheduler.get_today_tasks() == []
+
+
+def test_get_tasks_by_pet_unknown_pet():
+    # Asking for tasks belonging to a pet that has never been added should
+    # return an empty list rather than crash.
+    scheduler = Scheduler()
+    pet = Pet(name="Biscuit", species="Dog", age=3)
+    pet.add_task(make_task("Walk"), scheduler)
+
+    assert scheduler.get_tasks_by_pet("Ghost") == []
+
+
+def test_get_tasks_by_owner_no_pets():
+    # An owner with zero pets has no tasks. get_tasks_by_owner should return []
+    # without touching self.tasks at all (empty pet_names set matches nothing).
+    scheduler = Scheduler()
+    owner = Owner(name="Muskaan", email="muskaan@example.com")
+
+    assert scheduler.get_tasks_by_owner(owner) == []
